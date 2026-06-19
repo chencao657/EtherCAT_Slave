@@ -297,11 +297,11 @@ if (pData == NULL) {
 \brief    This function will called from the synchronisation ISR 
             or from the mainloop if no synchronisation is supported
 *////////////////////////////////////////////////////////////////////////////////////////
-UINT32 g_app_Isr_Cnt = 0U;
+// UINT32 g_app_Isr_Cnt = 0U;
 
 void APPL_Application(void)
 {
-    g_app_Isr_Cnt++;
+    // g_app_Isr_Cnt++;
     EcatIo_ApplyOutputs(DigitalOutputs0x7000.OutputByte);
     EcatIo_Application();
 }

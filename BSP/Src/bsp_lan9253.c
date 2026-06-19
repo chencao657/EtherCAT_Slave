@@ -980,7 +980,7 @@ static void LAN9253_PramWrite(LAN9253Device_t *this, uint16_t escAddr, const uin
     (void)this->pOps->PramWriteBusyWait(this, LAN9253_PRAM_TIMEOUT_MS);
 }
 
-/* ---------- 第三阶段 ISR 辅助：PRAM FIFO 访问 DPRAM/过程数据区 ---------- */
+/* ---------- 第三阶段 PRAM FIFO 访问 DPRAM/过程数据区 ---------- */
 
 /**
  * @brief ISR 上下文等待 PRAM 读事务 BUSY 清零。

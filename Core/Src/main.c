@@ -117,8 +117,8 @@ int main(void)
   }
   HAL_TIM_Base_Start_IT(&htim2);
 
-  uint32_t time_start=0U;
-  uint32_t time_current=0U;
+  // uint32_t time_start=0U;
+  // uint32_t time_current=0U;
 
   /* USER CODE END 2 */
 
@@ -126,14 +126,14 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    time_current=HAL_GetTick();
-    if(time_current-time_start>=1000U){
-      time_start=time_current;
-      printf("time: %" PRIu32 "\n", time_current-time_start);
-          printf("PDI_Isr_Cnt: %" PRIu32 "\n", g_PDI_Isr_Cnt);
-          printf("app_Isr_Cnt: %" PRIu32 "\n", g_app_Isr_Cnt);
-          printf("sync_Isr_Cnt: %" PRIu32 "\n", g_sync_Isr_Cnt);
-    }
+    // time_current=HAL_GetTick();
+    // if(time_current-time_start>=1000U){
+    //   time_start=time_current;
+    //   printf("time: %" PRIu32 "\n", time_current-time_start);
+    //       printf("PDI_Isr_Cnt: %" PRIu32 "\n", g_PDI_Isr_Cnt);
+    //       printf("app_Isr_Cnt: %" PRIu32 "\n", g_app_Isr_Cnt);
+    //       printf("sync_Isr_Cnt: %" PRIu32 "\n", g_sync_Isr_Cnt);
+    // }
     
 
     MainLoop();
@@ -203,11 +203,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     if (GPIO_Pin == LAN9253_IRQ_Pin) {
       PDI_Isr();
       BSP_LAN9253_ClearInterruptStatusIsr();
-      g_PDI_Isr_Cnt++;
+      // g_PDI_Isr_Cnt++;
     } 
     else if (GPIO_Pin == LAN9253_SYNC0_Pin) {
       Sync0_Isr();
-      g_sync_Isr_Cnt++;
+      // g_sync_Isr_Cnt++;
     } 
     else if (GPIO_Pin == LAN9253_SYNC1_Pin){   
       Sync1_Isr();
