@@ -170,7 +170,7 @@ DC_SUPPORTED: If distributed clocks should be supported by the slave, then this 
 If this switch is set, then also AL_EVENT_ENABLED shall be set.<br>
 NOTE: The DC support needs also be set in the "ESC_CONFIG_DATA" settings. */
 #ifndef DC_SUPPORTED
-#define DC_SUPPORTED                              0 //This define was already evaluated by ET9300 Project Handler(V. 1.4.0.0)!
+#define DC_SUPPORTED                              1 //This define was already evaluated by ET9300 Project Handler(V. 1.4.0.0)!
 #endif
 
 /** 

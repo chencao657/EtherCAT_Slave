@@ -346,11 +346,48 @@ UINT8 Read0x10F8(UINT16 index, UINT8 subindex, UINT32 dataSize, UINT16 MBXMEM * 
     }
 
 
+    COE_SyncTimeStamp();
 
     MEMCPY(pData, &u64Timestamp, dataSize);
     return 0;
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
+/**
+\brief    This function updates the local timestamp object (0x10F8) and has to be called at least every 4.2sec to detect an 32Bit DC unit overrun.
+          Called from the Timer handler 
+*////////////////////////////////////////////////////////////////////////////////////////
+void COE_SyncTimeStamp(void)
+{
+
+    if (b32BitDc)
+    {
+        UINT32 DcTime = (UINT32)(u64Timestamp & (UINT64)0x00000000FFFFFFFF);
+
+
+        HW_EscReadDWord(DcTime, ESC_SYSTEMTIME_OFFSET);
+
+        /*update the lower 32Bit*/
+        u64Timestamp = ((u64Timestamp & ((UINT64)0xFFFFFFFF00000000)) | (UINT64)DcTime);
+
+        if (DcTime < u32LastDc32Value)
+        {
+            /*32Bit overrun*/
+            u64Timestamp = u64Timestamp + ((UINT64)0x0000000100000000);
+        }
+        
+        u32LastDc32Value = DcTime;
+    }
+    else
+    {
+        /*The DC unit supports 64Bit => update the complete object*/
+        
+        HW_EscRead((MEM_ADDR *)&u64Timestamp, ESC_SYSTEMTIME_OFFSET, 8);
+    }
+
+    u32CheckForDcOverrunCnt = 0;
+
+}
 /*ECATCHANGE_END(V5.12) COE4*/
 
 
@@ -565,6 +602,9 @@ void COE_ObjInit(void)
 /*ECATCHANGE_END(V5.12) ECAT1*/
 #endif
                                               | SYNCTYPE_SYNCHRONSUPP         /* ECAT Synchron Mode is supported */
+                                              | SYNCTYPE_DCSYNC0SUPP          /* DC Sync0 Mode is supported */
+                                              | SYNCTYPE_DCSYNC1SUPP          /* DC Sync1 Mode is supported */
+                                              | SYNCTYPE_SUBCYCLESUPP         /*Subordinated application cycles supported*/
     ;
 
     /* subindex 5 contains the minimum cycle time the slave is able to support,
@@ -651,6 +691,23 @@ void COE_ObjInit(void)
 
 
 /*ECATCHANGE_START(V5.12) COE4*/
+    UINT32 EscFeature = 0;
+    HW_EscReadDWord(EscFeature, ESC_FEATURES_OFFSET);
+    EscFeature = SWAPDWORD(EscFeature);
+
+    if ((EscFeature & ESC_DC_32BIT_MASK) > 0)
+    {
+        b32BitDc = FALSE;
+    }
+    else
+    {
+        b32BitDc = TRUE;
+
+        HW_EscReadDWord(u32LastDc32Value, ESC_SYSTEMTIME_OFFSET);
+    }
+
+    u32CheckForDcOverrunCnt = CHECK_DC_OVERRUN_IN_MS;
+
     /*ECATCHANGE_END(V5.12) COE4*/
 }
 

@@ -116,6 +116,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
         // LED_Heartbeat_1ms_Tick();
         HW_TimerTick1ms();
+        ECAT_CheckTimer();
     }
 }
 /* USER CODE END 1 */

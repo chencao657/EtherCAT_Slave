@@ -33,7 +33,7 @@
 ------    local types and defines
 ------
 --------------------------------------------------------------------------------------*/
-#include "ecat_io_app.h"
+
 /*-----------------------------------------------------------------------------------------
 ------
 ------    local variables and constants
@@ -265,13 +265,11 @@ UINT16 APPL_GenerateMapping(UINT16 *pInputSize,UINT16 *pOutputSize)
 *////////////////////////////////////////////////////////////////////////////////////////
 void APPL_InputMapping(UINT16* pData)
 {
-UINT8 inputByte = EcatIo_ReadInputs();
-
-    DigitalInputs0x6000.InputByte = inputByte;
-
-    if (pData != NULL) {
-        ((UINT8 *)pData)[0] = inputByte;
-    }
+#if _WIN32
+   #pragma message ("Warning: Implement input (Slave -> Master) mapping")
+#else
+    #warning "Implement input (Slave -> Master) mapping"
+#endif
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -283,13 +281,11 @@ UINT8 inputByte = EcatIo_ReadInputs();
 *////////////////////////////////////////////////////////////////////////////////////////
 void APPL_OutputMapping(UINT16* pData)
 {
-if (pData == NULL) {
-        return;
-    }
-
-    DigitalOutputs0x7000.OutputByte = ((UINT8 *)pData)[0];
-    // EcatIo_ApplyOutputs(DigitalOutputs0x7000.OutputByte);
-
+#if _WIN32
+   #pragma message ("Warning: Implement output (Master -> Slave) mapping")
+#else
+    #warning "Implement output (Master -> Slave) mapping"
+#endif
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -297,13 +293,13 @@ if (pData == NULL) {
 \brief    This function will called from the synchronisation ISR 
             or from the mainloop if no synchronisation is supported
 *////////////////////////////////////////////////////////////////////////////////////////
-UINT32 g_app_Isr_Cnt = 0U;
-
 void APPL_Application(void)
 {
-    g_app_Isr_Cnt++;
-    EcatIo_ApplyOutputs(DigitalOutputs0x7000.OutputByte);
-    EcatIo_Application();
+#if _WIN32
+   #pragma message ("Warning: Implement the slave application")
+#else
+    #warning "Implement the slave application"
+#endif
 }
 
 #if EXPLICIT_DEVICE_ID

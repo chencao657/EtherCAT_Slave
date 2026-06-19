@@ -47,7 +47,6 @@
     #define PROTO extern
 #endif
 
-extern UINT32 g_app_Isr_Cnt;
 
 PROTO void APPL_Application(void);
 #if EXPLICIT_DEVICE_ID

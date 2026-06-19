@@ -1,4 +1,5 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 被2013 sp1 () 使用XMLSpy v编辑的 (http://www.altova.com) by -->
 <EtherCATInfo xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="EtherCATInfo.xsd" Version="1.6">
 	<Vendor>
 		<Id>#x14654</Id>
@@ -1081,11 +1082,25 @@
 					</Entry>
 				</TxPdo>
 				<Mailbox DataLinkLayer="true">
-					<CoE SdoInfo="true" PdoAssign="false" PdoConfig="false" CompleteAccess="true" SegmentedSdo="true" />
+					<CoE SdoInfo="true" PdoAssign="false" PdoConfig="false" CompleteAccess="true" SegmentedSdo="true"/>
 				</Mailbox>
+				<Dc>
+					<OpMode>
+						<Name>Synchron</Name>
+						<Desc>SM-Synchron</Desc>
+						<AssignActivate>#x0</AssignActivate>
+					</OpMode>
+					<OpMode>
+						<Name>DC</Name>
+						<Desc>DC-Synchron</Desc>
+						<AssignActivate>#x300</AssignActivate>
+						<CycleTimeSync0 Factor="1">0</CycleTimeSync0>
+						<CycleTimeSync1 Factor="1">0</CycleTimeSync1>
+					</OpMode>
+				</Dc>
 				<Eeprom>
 					<ByteSize>2048</ByteSize>
-					<ConfigData>00</ConfigData>
+					<ConfigData>800E00CC8813FF00000040C00000</ConfigData>
 				</Eeprom>
 			</Device>
 		</Devices>

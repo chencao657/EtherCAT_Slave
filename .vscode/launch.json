@@ -7,7 +7,7 @@
       "request": "launch",
       "servertype": "openocd",
       "cwd": "${workspaceFolder}",
-      "executable": "${workspaceFolder}/build/Debug/ETHERCAT_SLAVE_STD.elf",
+      "executable": "build/Debug/EtherCAT_Slave_STD.elf",
       "serverpath": "D:/vscode_tools/openocd/bin/openocd.exe",
       "configFiles": [
         "D:/vscode_tools/openocd/share/openocd/scripts/interface/cmsis-dap.cfg",

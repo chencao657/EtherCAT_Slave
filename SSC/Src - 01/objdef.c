@@ -798,29 +798,6 @@ UINT8 CheckSyncTypeValue(UINT16 index, UINT16 NewSyncType)
             }
         break;
 
-    case SYNCTYPE_DCSYNC0:
-        if ((index == 0x1C32) && ((sSyncManOutPar.u16SyncTypesSupported & SYNCTYPE_DCSYNC0SUPP) > 0))
-        {
-            return 0;
-        }
-        else
-        if ((index == 0x1C33) && ((sSyncManInPar.u16SyncTypesSupported & SYNCTYPE_DCSYNC0SUPP) > 0))
-        {
-            return 0;
-        }
-        break;
-
-    case SYNCTYPE_DCSYNC1:
-        if ((index == 0x1C32) && ((sSyncManOutPar.u16SyncTypesSupported & SYNCTYPE_DCSYNC1SUPP) > 0))
-        {
-            return 0;
-        }
-        else
-        if ((index == 0x1C33) && ((sSyncManInPar.u16SyncTypesSupported & SYNCTYPE_DCSYNC1SUPP) > 0))
-        {
-            return 0;
-        }
-        break;
     } //switch 
     return ABORTIDX_VALUE_EXCEEDED;
 

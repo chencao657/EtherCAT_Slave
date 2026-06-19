@@ -175,6 +175,8 @@ UINT16 HW_GetALEventRegister_Isr(void)
 void HW_DisableEscInterrupt(void)
 {
     HAL_NVIC_DisableIRQ(LAN9253_IRQ_EXTI_IRQn);
+    HAL_NVIC_DisableIRQ(LAN9253_SYNC0_EXTI_IRQn);
+    HAL_NVIC_DisableIRQ(LAN9253_SYNC1_EXTI_IRQn);
 
     if (s_escIntDisableDepth < UINT32_MAX) {
         s_escIntDisableDepth++;
@@ -192,6 +194,8 @@ void HW_EnableEscInterrupt(void)
 
     if (s_escIntDisableDepth == 0U) {
         HAL_NVIC_EnableIRQ(LAN9253_IRQ_EXTI_IRQn);
+        HAL_NVIC_EnableIRQ(LAN9253_SYNC0_EXTI_IRQn);
+        HAL_NVIC_EnableIRQ(LAN9253_SYNC1_EXTI_IRQn);
     }
 }
 

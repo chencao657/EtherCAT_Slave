@@ -122,6 +122,7 @@ PROTO    void       PDO_ResetOutputs(void);
 PROTO    void       PDO_ReadInputs(void);
 PROTO    void       PDO_InputMapping(void);
 
+PROTO    void       CalcSMCycleTime(void);
 
 
 
