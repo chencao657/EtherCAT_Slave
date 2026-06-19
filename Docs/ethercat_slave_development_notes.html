@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32F407 + LAN9253 EtherCAT 从站开发笔记</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --paper: #ffffff;
+      --ink: #1e293b;
+      --muted: #64748b;
+      --line: #d8dee8;
+      --code: #0f172a;
+      --code-ink: #e2e8f0;
+      --accent: #146c94;
+      --accent-2: #2f7d32;
+      --warn: #a15c00;
+      --bad: #a32727;
+      --good: #1c6b39;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.72;
+    }
+    header {
+      background: #102a43;
+      color: #fff;
+      padding: 34px 28px 30px;
+      border-bottom: 5px solid #2f7d32;
+    }
+    header .wrap, main {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.28;
+      letter-spacing: 0;
+    }
+    header p {
+      margin: 4px 0;
+      color: #dbeafe;
+    }
+    main {
+      padding: 22px 18px 48px;
+      display: grid;
+      grid-template-columns: 270px minmax(0, 1fr);
+      gap: 18px;
+    }
+    nav {
+      position: sticky;
+      top: 14px;
+      align-self: start;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    nav h2 {
+      font-size: 16px;
+      margin: 0 0 10px;
+    }
+    nav a {
+      display: block;
+      color: var(--accent);
+      text-decoration: none;
+      padding: 5px 0;
+      font-size: 14px;
+    }
+    nav a:hover { text-decoration: underline; }
+    article {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 26px;
+    }
+    section {
+      padding: 8px 0 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    section:last-child { border-bottom: 0; }
+    h2 {
+      margin: 12px 0 12px;
+      font-size: 24px;
+      line-height: 1.35;
+    }
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 18px;
+      line-height: 1.4;
+    }
+    h4 {
+      margin: 18px 0 6px;
+      font-size: 16px;
+    }
+    p { margin: 8px 0; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 4px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th { background: #edf3f8; }
+    code {
+      font-family: Consolas, "Cascadia Mono", "Courier New", monospace;
+      background: #eef2f7;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-size: 0.95em;
+    }
+    pre {
+      margin: 12px 0 18px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      background: var(--code);
+      color: var(--code-ink);
+      overflow-x: auto;
+      line-height: 1.48;
+      font-size: 13px;
+    }
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border-radius: 0;
+    }
+    .chapter {
+      display: inline-block;
+      color: #fff;
+      background: var(--accent-2);
+      padding: 2px 9px;
+      border-radius: 5px;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .note, .warn, .ok, .bug {
+      border-left: 4px solid var(--accent);
+      background: #f1f8fb;
+      padding: 10px 12px;
+      margin: 12px 0;
+      border-radius: 0 6px 6px 0;
+    }
+    .warn { border-left-color: var(--warn); background: #fff7e8; }
+    .ok { border-left-color: var(--good); background: #eef9f1; }
+    .bug { border-left-color: var(--bad); background: #fff1f1; }
+    .path {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: -4px;
+    }
+    .kbd {
+      border: 1px solid #cbd5e1;
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      background: #fff;
+      padding: 0 5px;
+      font-family: Consolas, monospace;
+    }
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      nav { position: static; }
+      article { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <span class="chapter">第一章</span>
+      <h1>STM32F407 + LAN9253：无中断简易 IO EtherCAT 从站</h1>
+      <p>目标：先做一个稳定的 FreeRun IO 从站，不开启 AL Event 中断，不开启 DC，同步功能留到后续章节。</p>
+      <p>当前硬件：STM32F407 + LAN9253，4 个按键作为输入，2 个 LED 作为输出，LAN9253 使用外置 EEPROM。</p>
+    </div>
+  </header>
+
+  <main>
+    <nav>
+      <h2>目录</h2>
+      <a href="#goal">1. 本章目标</a>
+      <a href="#architecture">2. 工程结构</a>
+      <a href="#ssc">3. SSCTool 配置</a>
+      <a href="#pdo">4. PDO 与对象字典</a>
+      <a href="#integration">5. 协议栈移植代码</a>
+      <a href="#app">6. IO 应用映射</a>
+      <a href="#mainloop">7. 主循环接入</a>
+      <a href="#cmake">8. CMake 接入</a>
+      <a href="#eeprom">9. EEPROM/XML 配置</a>
+      <a href="#bugs">10. Bug 复盘</a>
+      <a href="#verify">11. 验证结果</a>
+      <a href="#next">12. 下一章计划</a>
+    </nav>
+
+    <article>
+      <section id="goal">
+        <h2>1. 本章目标</h2>
+        <p>这一章只做最小可用从站。所谓“最小可用”，就是主站能扫描到设备，能从 <code>Init</code> 进入 <code>Pre-Op</code>、<code>Safe-Op</code>、<code>Op</code>，并能周期性读写 1 字节输入和 1 字节输出。</p>
+        <table>
+          <tr><th>功能</th><th>本章状态</th><th>说明</th></tr>
+          <tr><td>CoE</td><td>开启</td><td>用于对象字典、PDO 映射、TwinCAT 在线查看。</td></tr>
+          <tr><td>RxPDO</td><td>1 字节</td><td>主站写给从站，控制 LED1、LED2。</td></tr>
+          <tr><td>TxPDO</td><td>1 字节</td><td>从站发给主站，表示 KEY1 到 KEY4 当前状态。</td></tr>
+          <tr><td>AL Event 中断</td><td>关闭</td><td><code>AL_EVENT_ENABLED = 0</code>，协议栈轮询 AL Event。</td></tr>
+          <tr><td>DC 分布时钟</td><td>关闭</td><td><code>DC_SUPPORTED = 0</code>，先不做同步。</td></tr>
+          <tr><td>同步模式</td><td>FreeRun</td><td>先保证状态机和 PDO 稳定。</td></tr>
+        </table>
+        <div class="note">通俗理解：这一章先让从站“会说话、能收发简单数据”。至于“按严格时钟节奏说话”，放到后面 DC 和中断章节。</div>
+      </section>
+
+      <section id="architecture">
+        <h2>2. 工程结构</h2>
+        <p>当前工程里保留了两份 SSC 相关内容：</p>
+        <table>
+          <tr><th>目录</th><th>用途</th></tr>
+          <tr><td><code>SSC/</code></td><td>SSCTool 原始生成结果和 XML/Excel 配置，方便以后重新生成。</td></tr>
+          <tr><td><code>EtherCAT/</code></td><td>工程实际参与编译的 SSC 协议栈源码。</td></tr>
+          <tr><td><code>BSP/</code></td><td>板级驱动，包括 SPI、LAN9253、LED、按键，以及 SSC 硬件适配层。</td></tr>
+          <tr><td><code>App/</code></td><td>用户应用层，把 EtherCAT PDO 映射到按键和 LED。</td></tr>
+          <tr><td><code>Core/</code></td><td>CubeMX 生成的 STM32 初始化和主函数。</td></tr>
+        </table>
+        <p>整理成这种结构的好处是：以后 SSCTool 重新生成时，先覆盖 <code>SSC/</code>，确认无误后再同步到 <code>EtherCAT/</code>，自己的硬件适配和应用逻辑尽量留在 <code>BSP/</code>、<code>App/</code> 里。</p>
+      </section>
+
+      <section id="ssc">
+        <h2>3. SSCTool 配置</h2>
+        <p>本章使用的是保守配置，核心思想是“先少开功能”。</p>
+        <table>
+          <tr><th>配置项</th><th>值</th><th>原因</th></tr>
+          <tr><td><code>SAMPLE_APPLICATION</code></td><td><code>0</code></td><td>不用官方示例应用，自己实现 <code>APPL_InputMapping</code> 和 <code>APPL_OutputMapping</code>。</td></tr>
+          <tr><td><code>USE_DEFAULT_MAIN</code></td><td><code>0</code></td><td>使用 STM32 自己的 <code>main.c</code>，手动调用 <code>MainInit()</code> 和 <code>MainLoop()</code>。</td></tr>
+          <tr><td><code>COE_SUPPORTED</code></td><td><code>1</code></td><td>需要对象字典和 PDO 映射。</td></tr>
+          <tr><td><code>FOE/SOE/EOE/AOE/VOE</code></td><td><code>0</code></td><td>本章不需要文件传输、网络、伺服等功能。</td></tr>
+          <tr><td><code>AL_EVENT_ENABLED</code></td><td><code>0</code></td><td>不开 LAN9253 IRQ 中断，轮询方式更容易调通。</td></tr>
+          <tr><td><code>DC_SUPPORTED</code></td><td><code>0</code></td><td>不启用分布时钟，同步功能后续再做。</td></tr>
+          <tr><td><code>ECAT_TIMER_INT</code></td><td><code>0</code></td><td>EtherCAT 定时检查放在主循环，不进定时器中断。</td></tr>
+          <tr><td><code>ESC_16BIT_ACCESS</code></td><td><code>1</code></td><td>本章保持 SSCTool 生成配置；注意它和 PDO 使用 <code>UINT8</code> 不冲突。</td></tr>
+        </table>
+        <div class="warn">经验：不要一开始就同时打开 AL Event 中断和 DC。中断、同步、SPI 重入、ESC 事件处理会把问题混在一起。先把 FreeRun 跑稳，是比较舒服的路。</div>
+      </section>
+
+      <section id="pdo">
+        <h2>4. PDO 与对象字典</h2>
+        <h3>4.1 过程数据设计</h3>
+        <table>
+          <tr><th>方向</th><th>对象</th><th>含义</th><th>位定义</th></tr>
+          <tr><td>Slave -> Master</td><td><code>0x6000:01</code></td><td><code>Input Byte</code></td><td>bit0..bit3 = KEY1..KEY4</td></tr>
+          <tr><td>Master -> Slave</td><td><code>0x7000:01</code></td><td><code>Output Byte</code></td><td>bit0 = LED1，bit1 = LED2</td></tr>
+        </table>
+
+        <h3>4.2 SSCTool 生成的对象字典关键结果</h3>
+        <p class="path">文件：EtherCAT/Inc/io_cpObjects.h</p>
+        <pre><code>/* 0x1600: RxPDO mapping, maps 0x7000:01, 8 bit */
+PROTO TOBJ1600 DigitalOutputsProcessDataMapping0x1600
+#if defined(_IO_CP_) &amp;&amp; (_IO_CP_ == 1)
+={1,0x70000108}
+#endif
+;
+
+/* 0x1A00: TxPDO mapping, maps 0x6000:01, 8 bit */
+PROTO TOBJ1A00 DigitalInputsProcessDataMapping0x1A00
+#if defined(_IO_CP_) &amp;&amp; (_IO_CP_ == 1)
+={1,0x60000108}
+#endif
+;
+
+/* SM2 assignment -> RxPDO 0x1600 */
+PROTO TOBJ1C12 sRxPDOassign
+#if defined(_IO_CP_) &amp;&amp; (_IO_CP_ == 1)
+={1,{0x1600}}
+#endif
+;
+
+/* SM3 assignment -> TxPDO 0x1A00 */
+PROTO TOBJ1C13 sTxPDOassign
+#if defined(_IO_CP_) &amp;&amp; (_IO_CP_ == 1)
+={1,{0x1A00}}
+#endif
+;</code></pre>
+
+        <h3>4.3 ESI/XML 里的 SM 和 PDO</h3>
+        <p class="path">文件：SSC/io_cp.xml</p>
+        <pre><code>&lt;Sm MinSize="#x24" MaxSize="#x80" DefaultSize="#x80" StartAddress="#x1000" ControlByte="#x26" Enable="1"&gt;MBoxOut&lt;/Sm&gt;
+&lt;Sm MinSize="#x24" MaxSize="#x80" DefaultSize="#x80" StartAddress="#x1080" ControlByte="#x22" Enable="1"&gt;MBoxIn&lt;/Sm&gt;
+&lt;Sm DefaultSize="1" StartAddress="#x1100" ControlByte="#x64" Enable="1"&gt;Outputs&lt;/Sm&gt;
+&lt;Sm DefaultSize="1" StartAddress="#x1400" ControlByte="#x20" Enable="1"&gt;Inputs&lt;/Sm&gt;
+
+&lt;RxPdo Fixed="true" Mandatory="true" Sm="2"&gt;
+  &lt;Index&gt;#x1600&lt;/Index&gt;
+  &lt;Entry&gt;
+    &lt;Index&gt;#x7000&lt;/Index&gt;
+    &lt;SubIndex&gt;1&lt;/SubIndex&gt;
+    &lt;BitLen&gt;8&lt;/BitLen&gt;
+    &lt;Name&gt;Output Byte&lt;/Name&gt;
+    &lt;DataType&gt;USINT&lt;/DataType&gt;
+  &lt;/Entry&gt;
+&lt;/RxPdo&gt;
+
+&lt;TxPdo Fixed="true" Mandatory="true" Sm="3"&gt;
+  &lt;Index&gt;#x1A00&lt;/Index&gt;
+  &lt;Entry&gt;
+    &lt;Index&gt;#x6000&lt;/Index&gt;
+    &lt;SubIndex&gt;1&lt;/SubIndex&gt;
+    &lt;BitLen&gt;8&lt;/BitLen&gt;
+    &lt;Name&gt;Input Byte&lt;/Name&gt;
+    &lt;DataType&gt;USINT&lt;/DataType&gt;
+  &lt;/Entry&gt;
+&lt;/TxPdo&gt;</code></pre>
+      </section>
+
+      <section id="integration">
+        <h2>5. 协议栈移植代码</h2>
+        <p>SSC 本体不认识你的 LAN9253 BSP。它只会调用一组固定名字的硬件函数，例如 <code>HW_EscRead</code>、<code>HW_EscWrite</code>、<code>HW_GetALEventRegister</code>。所以这里写了一个适配层，把 SSC 的调用转到现有 LAN9253 驱动。</p>
+
+        <h3>5.1 硬件适配头文件</h3>
+        <p class="path">文件：BSP/Inc/bsp_ssc_hw.h</p>
+        <pre><code>#ifndef __BSP_SSC_HW_H__
+#define __BSP_SSC_HW_H__
+
+/*
+ * The SSC object dictionary and mailbox structures describe EtherCAT wire data.
+ * Keep them byte-packed when building with GCC, otherwise UINT32 entries after
+ * UINT16 subindex fields are padded and PDO mapping sizes are read incorrectly.
+ */
+#if defined(__GNUC__)
+#define SSC_GCC_PACKED __attribute__((packed))
+#else
+#define SSC_GCC_PACKED
+#endif
+
+#ifndef STRUCT_PACKED_START
+#define STRUCT_PACKED_START
+#endif
+
+#ifndef STRUCT_PACKED_END
+#define STRUCT_PACKED_END SSC_GCC_PACKED
+#endif
+
+#ifndef MBX_STRUCT_PACKED_START
+#define MBX_STRUCT_PACKED_START
+#endif
+
+#ifndef MBX_STRUCT_PACKED_END
+#define MBX_STRUCT_PACKED_END SSC_GCC_PACKED
+#endif
+
+#ifndef OBJ_STRUCT_PACKED_START
+#define OBJ_STRUCT_PACKED_START
+#endif
+
+#ifndef OBJ_STRUCT_PACKED_END
+#define OBJ_STRUCT_PACKED_END SSC_GCC_PACKED
+#endif
+
+#ifndef OBJ_DWORD_ALIGN
+#define OBJ_DWORD_ALIGN 0
+#endif
+
+#ifndef OBJ_WORD_ALIGN
+#define OBJ_WORD_ALIGN 0
+#endif
+
+#include "ecat_def.h"
+
+UINT16 HW_Init(void);
+void HW_Release(void);
+
+UINT32 HW_GetTimer(void);
+void HW_ClearTimer(void);
+
+UINT16 HW_GetALEventRegister(void);
+UINT16 HW_GetALEventRegister_Isr(void);
+
+void HW_EscRead(MEM_ADDR *pData, UINT16 address, UINT16 len);
+void HW_EscWrite(MEM_ADDR *pData, UINT16 address, UINT16 len);
+void HW_EscReadIsr(MEM_ADDR *pData, UINT16 address, UINT16 len);
+void HW_EscWriteIsr(MEM_ADDR *pData, UINT16 address, UINT16 len);
+void HW_EscReadMbxMem(MEM_ADDR *pData, UINT16 address, UINT16 len);
+void HW_EscWriteMbxMem(MEM_ADDR *pData, UINT16 address, UINT16 len);
+
+#define HW_EscReadWord(var, address) \
+    do { HW_EscRead((MEM_ADDR *)&amp;(var), (address), 2U); } while (0)
+
+#define HW_EscWriteWord(var, address) \
+    do { HW_EscWrite((MEM_ADDR *)&amp;(var), (address), 2U); } while (0)
+
+#define HW_EscReadDWord(var, address) \
+    do { HW_EscRead((MEM_ADDR *)&amp;(var), (address), 4U); } while (0)
+
+#define HW_EscWriteDWord(var, address) \
+    do { HW_EscWrite((MEM_ADDR *)&amp;(var), (address), 4U); } while (0)
+
+#define HW_EscReadWordIsr(var, address) \
+    do { HW_EscReadIsr((MEM_ADDR *)&amp;(var), (address), 2U); } while (0)
+
+#define HW_EscWriteWordIsr(var, address) \
+    do { HW_EscWriteIsr((MEM_ADDR *)&amp;(var), (address), 2U); } while (0)
+
+#define HW_EscReadDWordIsr(var, address) \
+    do { HW_EscReadIsr((MEM_ADDR *)&amp;(var), (address), 4U); } while (0)
+
+#define HW_EscWriteDWordIsr(var, address) \
+    do { HW_EscWriteIsr((MEM_ADDR *)&amp;(var), (address), 4U); } while (0)
+
+#endif /* __BSP_SSC_HW_H__ */</code></pre>
+
+        <h3>5.2 硬件适配实现</h3>
+        <p class="path">文件：BSP/Src/bsp_ssc_hw.c</p>
+        <pre><code>#include "bsp_ssc_hw.h"
+
+#include "bsp_lan9253.h"
+#include "stm32f4xx_hal.h"
+
+#include &lt;stdint.h&gt;
+
+static UINT32 s_timerStartMs;
+
+UINT16 HW_Init(void)
+{
+    BSP_LAN9253_Init();
+    s_timerStartMs = (UINT32)HAL_GetTick();
+
+    return (BSP_LAN9253_SelfTest() != 0U) ? 0U : 1U;
+}
+
+void HW_Release(void)
+{
+}
+
+UINT32 HW_GetTimer(void)
+{
+    return (UINT32)HAL_GetTick() - s_timerStartMs;
+}
+
+void HW_ClearTimer(void)
+{
+    s_timerStartMs = (UINT32)HAL_GetTick();
+}
+
+UINT16 HW_GetALEventRegister(void)
+{
+    return BSP_LAN9253_ReadALEvent();
+}
+
+UINT16 HW_GetALEventRegister_Isr(void)
+{
+    return BSP_LAN9253_ReadALEvent();
+}
+
+void HW_EscRead(MEM_ADDR *pData, UINT16 address, UINT16 len)
+{
+    BSP_LAN9253_EscRead((uint8_t *)pData, (uint16_t)address, (uint16_t)len);
+}
+
+void HW_EscWrite(MEM_ADDR *pData, UINT16 address, UINT16 len)
+{
+    BSP_LAN9253_EscWrite((const uint8_t *)pData, (uint16_t)address, (uint16_t)len);
+}
+
+void HW_EscReadIsr(MEM_ADDR *pData, UINT16 address, UINT16 len)
+{
+    BSP_LAN9253_EscReadIsr((uint8_t *)pData, (uint16_t)address, (uint16_t)len);
+}
+
+void HW_EscWriteIsr(MEM_ADDR *pData, UINT16 address, UINT16 len)
+{
+    BSP_LAN9253_EscWriteIsr((const uint8_t *)pData, (uint16_t)address, (uint16_t)len);
+}
+
+void HW_EscReadMbxMem(MEM_ADDR *pData, UINT16 address, UINT16 len)
+{
+    HW_EscRead(pData, address, len);
+}
+
+void HW_EscWriteMbxMem(MEM_ADDR *pData, UINT16 address, UINT16 len)
+{
+    HW_EscWrite(pData, address, len);
+}</code></pre>
+
+        <div class="warn">注意：本章虽然提供了 <code>HW_EscReadIsr</code> 和 <code>HW_EscWriteIsr</code>，但它们仍然复用阻塞式 HAL SPI。因为本章不开 AL Event 中断，所以不会在真实中断上下文频繁访问 SPI。后面开启中断时必须重新评估 SPI 重入和 ISR 内阻塞问题。</div>
+      </section>
+
+      <section id="app">
+        <h2>6. IO 应用映射</h2>
+        <h3>6.1 应用层接口</h3>
+        <p class="path">文件：App/Inc/ecat_io_app.h</p>
+        <pre><code>#ifndef __ECAT_IO_APP_H__
+#define __ECAT_IO_APP_H__
+
+#include "ecat_def.h"
+
+UINT8 EcatIo_ReadInputs(void);
+void EcatIo_ApplyOutputs(UINT8 outputByte);
+void EcatIo_Application(void);
+
+#endif /* __ECAT_IO_APP_H__ */</code></pre>
+
+        <p class="path">文件：App/Src/ecat_io_app.c</p>
+        <pre><code>#include "ecat_io_app.h"
+
+#include "bsp_key.h"
+#include "bsp_led.h"
+
+UINT8 EcatIo_ReadInputs(void)
+{
+    return BSP_Key_ReadStateByte();
+}
+
+void EcatIo_ApplyOutputs(UINT8 outputByte)
+{
+    BSP_LED_Set(LED1, ((outputByte &amp; 0x01U) != 0U) ? LED_ON : LED_OFF);
+    BSP_LED_Set(LED2, ((outputByte &amp; 0x02U) != 0U) ? LED_ON : LED_OFF);
+}
+
+void EcatIo_Application(void)
+{
+}</code></pre>
+
+        <h3>6.2 按键状态接口</h3>
+        <p>原来的 <code>Key_Poll_10ms()</code> 是“按下事件”接口，适合菜单和触发类逻辑，但 EtherCAT 输入 PDO 更适合表达“当前状态”。所以新增了 <code>BSP_Key_ReadStateByte()</code>。</p>
+        <p class="path">文件：BSP/Src/bsp_key.c</p>
+        <pre><code>uint8_t BSP_Key_ReadStateByte(void)
+{
+    uint8_t state = 0U;
+
+    if (HAL_GPIO_ReadPin(KEY_PORT, PIN_KEY1) == GPIO_PIN_RESET) {
+        state |= 0x01U;
+    }
+
+    if (HAL_GPIO_ReadPin(KEY_PORT, PIN_KEY2) == GPIO_PIN_RESET) {
+        state |= 0x02U;
+    }
+
+    if (HAL_GPIO_ReadPin(KEY_PORT, PIN_KEY3) == GPIO_PIN_RESET) {
+        state |= 0x04U;
+    }
+
+    if (HAL_GPIO_ReadPin(KEY_PORT, PIN_KEY4) == GPIO_PIN_RESET) {
+        state |= 0x08U;
+    }
+
+    return state;
+}</code></pre>
+
+        <h3>6.3 SSC 生成文件中的应用钩子</h3>
+        <p class="path">文件：EtherCAT/Src/io_cp.c</p>
+        <pre><code>void APPL_InputMapping(UINT16* pData)
+{
+    UINT8 inputByte = EcatIo_ReadInputs();
+
+    DigitalInputs0x6000.InputByte = inputByte;
+
+    if (pData != NULL) {
+        ((UINT8 *)pData)[0] = inputByte;
+    }
+}
+
+void APPL_OutputMapping(UINT16* pData)
+{
+    if (pData == NULL) {
+        return;
+    }
+
+    DigitalOutputs0x7000.OutputByte = ((UINT8 *)pData)[0];
+    EcatIo_ApplyOutputs(DigitalOutputs0x7000.OutputByte);
+}
+
+void APPL_Application(void)
+{
+    EcatIo_Application();
+}</code></pre>
+        <div class="warn">这三个函数位于 SSCTool 生成文件里。如果以后重新生成并覆盖 <code>EtherCAT/Src/io_cp.c</code>，需要把这三个钩子补回去，或者研究 SSCTool 是否能指定自定义 application file。</div>
+      </section>
+
+      <section id="mainloop">
+        <h2>7. 主循环接入</h2>
+        <p>之前 <code>main.c</code> 跑的是 LAN9253 UART 测试菜单。接入 SSC 后，主循环必须调用 <code>MainLoop()</code>，否则 EtherCAT 状态机和邮箱服务不会运行。</p>
+        <p class="path">文件：Core/Src/main.c</p>
+        <pre><code>#include "bsp_ssc_hw.h"
+#include "applInterface.h"
+
+/* ... CubeMX 初始化 ... */
+
+MX_GPIO_Init();
+MX_SPI3_Init();
+MX_TIM2_Init();
+MX_USART2_UART_Init();
+
+BSP_UART_Init();
+BSP_LED_Init();
+
+if (HW_Init() != 0U) {
+  Error_Handler();
+}
+
+if (MainInit() != 0U) {
+  Error_Handler();
+}
+
+while (1)
+{
+  MainLoop();
+}</code></pre>
+        <p>通俗理解：<code>HW_Init()</code> 准备 LAN9253 和底层硬件，<code>MainInit()</code> 初始化 EtherCAT 协议栈，<code>MainLoop()</code> 则不断处理主站命令、状态切换、邮箱和 PDO。</p>
+      </section>
+
+      <section id="cmake">
+        <h2>8. CMake 接入</h2>
+        <p>工程实际编译的是 <code>EtherCAT/Src</code>，不是 <code>SSC/Src</code>。同时通过 <code>-include BSP/Inc/bsp_ssc_hw.h</code>，让所有 SSC 源文件在包含 <code>ecat_def.h</code> 前先拿到 STM32/GCC 移植宏。</p>
+        <p class="path">文件：CMakeLists.txt</p>
+        <pre><code>target_sources(${CMAKE_PROJECT_NAME} PRIVATE
+    App/Src/ecat_io_app.c
+    BSP/Src/bsp_gpio.c
+    BSP/Src/bsp_key.c
+    BSP/Src/bsp_lan9253.c
+    BSP/Src/bsp_led.c
+    BSP/Src/bsp_spi.c
+    BSP/Src/bsp_ssc_hw.c
+    BSP/Src/bsp_uart.c
+    BSP/Src/ring_buffer.c
+    Test/Src/test_app.c
+    Test/Src/test_lan9253.c
+    EtherCAT/Src/coeappl.c
+    EtherCAT/Src/ecatappl.c
+    EtherCAT/Src/ecatcoe.c
+    EtherCAT/Src/ecatslv.c
+    EtherCAT/Src/io_cp.c
+    EtherCAT/Src/mailbox.c
+    EtherCAT/Src/objdef.c
+    EtherCAT/Src/sdoserv.c
+)
+
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+    BSP/Inc
+    App/Inc
+    Test/Inc
+    EtherCAT/Inc
+)
+
+target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE
+    $&lt;$&lt;COMPILE_LANGUAGE:C&gt;:-include&gt;
+    $&lt;$&lt;COMPILE_LANGUAGE:C&gt;:${CMAKE_CURRENT_SOURCE_DIR}/BSP/Inc/bsp_ssc_hw.h&gt;
+)
+
+target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
+    ECAT_TIMER_INC_P_MS=1
+)</code></pre>
+      </section>
+
+      <section id="eeprom">
+        <h2>9. EEPROM/XML 配置</h2>
+        <p>本板有外置 EEPROM，所以本章保持：</p>
+        <pre><code>#define ESC_EEPROM_EMULATION 0
+#define ESC_EEPROM_SIZE 0x800</code></pre>
+        <p>XML 里 EEPROM 大小为 2048 字节，并填入 ESC 配置数据：</p>
+        <pre><code>&lt;Eeprom&gt;
+  &lt;ByteSize&gt;2048&lt;/ByteSize&gt;
+  &lt;ConfigData&gt;800E00CC8813FF00000040C00000&lt;/ConfigData&gt;
+&lt;/Eeprom&gt;</code></pre>
+        <div class="note">改 XML 不等于已经把外置 EEPROM 烧好。XML 是给 TwinCAT/主站看的 ESI 描述，真正上电启动还依赖 LAN9253 外置 EEPROM 中实际保存的 EEPROM 内容。</div>
+      </section>
+
+      <section id="bugs">
+        <h2>10. Bug 复盘</h2>
+        <h3>10.1 缺少 SSC 硬件适配层，编译失败</h3>
+        <div class="bug">
+          <p><strong>现象：</strong>加入 <code>EtherCAT/Src</code> 后编译报大量 <code>implicit declaration of function 'HW_EscReadWord'</code>、<code>HW_GetALEventRegister</code>、<code>HW_EscReadMbxMem</code> 等错误。</p>
+          <p><strong>原因：</strong>SSC 协议栈是硬件无关代码，它假设平台移植层已经提供 <code>HW_*</code> 函数/宏。LAN9253 BSP 虽然已经能读写 ESC，但名字和 SSC 要求不同。</p>
+          <p><strong>修复：</strong>新增 <code>BSP/Inc/bsp_ssc_hw.h</code> 和 <code>BSP/Src/bsp_ssc_hw.c</code>，把 SSC 的 <code>HW_*</code> 调用转接到 <code>BSP_LAN9253_EscRead/EscWrite</code>。</p>
+        </div>
+
+        <h3>10.2 <code>APPL_InputMapping</code> / <code>APPL_OutputMapping</code> 为空</h3>
+        <div class="bug">
+          <p><strong>现象：</strong>SSCTool 生成代码能编译一部分，但 <code>io_cp.c</code> 中有 <code>#warning "Implement input"</code>、<code>#warning "Implement output"</code>。</p>
+          <p><strong>原因：</strong><code>SAMPLE_APPLICATION = 0</code> 表示不用官方示例应用，所以用户必须自己实现应用映射。</p>
+          <p><strong>修复：</strong>在 <code>App/</code> 中实现 IO 应用逻辑，并在 <code>io_cp.c</code> 三个应用钩子里调用。</p>
+        </div>
+
+        <h3>10.3 TwinCAT 进不了 SafeOP：<code>0x001e Invalid SM IN cfg</code></h3>
+        <div class="bug">
+          <p><strong>现象：</strong>TwinCAT 状态停在 <code>ERR PREOP</code>，错误为：</p>
+          <pre><code>PREOP to SAFEOP failed
+AL Status Code 0x001e - Invalid SM IN cfg</code></pre>
+          <p><strong>直觉误区：</strong>一开始容易怀疑 EEPROM、SM3 地址、PDO 长度或 TwinCAT 配置。但 XML 中 SM3 是 <code>StartAddress=0x1400</code>、<code>DefaultSize=1</code>、<code>ControlByte=0x20</code>，对象字典中 TxPDO 也是 1 字节。</p>
+          <p><strong>真正原因：</strong>GCC 默认会给结构体成员补齐。例如 <code>UINT16 u16SubIndex0; UINT32 SI1;</code> 中间会补 2 字节。如果 SSC 的对象字典偏移计算按紧凑布局读取，就会读偏 <code>0x1A00</code> PDO 映射项，导致协议栈算错 <code>nPdInputSize</code>。主站写的 SM3 长度明明是 1，协议栈内部期望值却不是 1，于是报 <code>Invalid SM IN cfg</code>。</p>
+          <p><strong>修复：</strong>在 <code>bsp_ssc_hw.h</code> 里定义 <code>STRUCT_PACKED_END</code>、<code>MBX_STRUCT_PACKED_END</code>、<code>OBJ_STRUCT_PACKED_END</code> 为 <code>__attribute__((packed))</code>，并设置 <code>OBJ_WORD_ALIGN=0</code>、<code>OBJ_DWORD_ALIGN=0</code>。</p>
+          <p><strong>结果：</strong>重新编译烧录后，设备可以进入 SafeOP/OP，IO 功能正常。</p>
+        </div>
+
+        <h3>10.4 关于 <code>AL_EVENT_ENABLED</code> 和 DC</h3>
+        <div class="warn">
+          <p>本章不建议打开 <code>AL_EVENT_ENABLED</code> 和 <code>DC_SUPPORTED</code>。原因是当前 <code>HW_EscReadIsr/HW_EscWriteIsr</code> 仍然复用阻塞 HAL SPI。如果真的在 EXTI 中断里直接访问 SPI，可能引入阻塞、重入和时序问题。</p>
+          <p>后续要打开 AL Event 中断时，建议先设计“中断只置位标志，主循环处理 SPI”的方式，或者系统性评估 SPI/DMA/临界区。</p>
+        </div>
+      </section>
+
+      <section id="verify">
+        <h2>11. 验证结果</h2>
+        <table>
+          <tr><th>项目</th><th>结果</th></tr>
+          <tr><td>编译</td><td>通过，生成 <code>build/Debug/EtherCAT_Slave_STD.elf</code>。</td></tr>
+          <tr><td>TwinCAT 扫描</td><td>能识别 IO 从站。</td></tr>
+          <tr><td>状态机</td><td>可以进入 <code>SafeOP</code> 和 <code>OP</code>。</td></tr>
+          <tr><td>输入</td><td>按键状态通过 <code>Input Byte</code> 上传。</td></tr>
+          <tr><td>输出</td><td>主站写 <code>Output Byte</code> 可控制 LED1/LED2。</td></tr>
+        </table>
+        <div class="ok">本章结论：无中断、无 DC 的简易 IO 从站已经打通。现在这个版本适合作为后续章节的稳定基线。</div>
+      </section>
+
+      <section id="next">
+        <h2>12. 下一章计划</h2>
+        <p>建议后续按这个顺序继续，不要一次打开太多功能：</p>
+        <ol>
+          <li>整理 TwinCAT 侧 ESI 导入、EEPROM 烧录和重新扫描流程。</li>
+          <li>加入更清晰的调试打印，例如状态机变化、AL Status Code、SM 配置读取。</li>
+          <li>打开 <code>AL_EVENT_ENABLED</code>，但先不要开 DC，验证 LAN9253 IRQ 事件处理。</li>
+          <li>稳定后再开启 DC，验证 Sync0/Sync1、周期时间和 0x1C32/0x1C33。</li>
+          <li>最后再考虑输入消抖策略是否放入 PDO 状态，或者保留原始 GPIO 状态。</li>
+        </ol>
+        <p>复习时记住本章主线：<strong>SSCTool 生成协议栈和对象字典，BSP 提供 ESC 读写，App 负责 PDO 与硬件的含义映射，main.c 周期调用 MainLoop。</strong></p>
+      </section>
+
+    </article>
+  </main>
+</body>
+</html>

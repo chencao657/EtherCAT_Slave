@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STM32F407 + LAN9253 EtherCAT 从站开发笔记 - 第二章字节对齐专题</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --paper: #ffffff;
+      --ink: #1f2937;
+      --muted: #5b6473;
+      --line: #d7dee8;
+      --code: #0f172a;
+      --code-ink: #e5ecf5;
+      --accent: #1b6f8a;
+      --accent-2: #336b4b;
+      --warn: #a15f00;
+      --ok: #1f6d3b;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      line-height: 1.72;
+    }
+    header {
+      background: #10283b;
+      color: #fff;
+      border-bottom: 5px solid var(--accent-2);
+      padding: 34px 28px 30px;
+    }
+    header .wrap,
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+    header p {
+      margin: 4px 0;
+      color: #dbeafe;
+    }
+    .chapter {
+      display: inline-block;
+      background: var(--accent-2);
+      color: #fff;
+      border-radius: 5px;
+      padding: 2px 9px;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    main {
+      display: grid;
+      grid-template-columns: 286px minmax(0, 1fr);
+      gap: 18px;
+      padding: 22px 18px 48px;
+    }
+    nav {
+      position: sticky;
+      top: 14px;
+      align-self: start;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    nav h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+    nav a {
+      display: block;
+      padding: 5px 0;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 14px;
+    }
+    nav a:hover { text-decoration: underline; }
+    article {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 26px;
+    }
+    section {
+      padding: 8px 0 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    section:last-child { border-bottom: 0; }
+    h2 {
+      margin: 12px 0 12px;
+      font-size: 24px;
+      line-height: 1.34;
+    }
+    h3 {
+      margin: 20px 0 8px;
+      font-size: 18px;
+      line-height: 1.4;
+    }
+    p { margin: 8px 0; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 4px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #edf3f8; }
+    code {
+      font-family: Consolas, "Cascadia Mono", "Courier New", monospace;
+      background: #eef2f7;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-size: 0.95em;
+    }
+    pre {
+      margin: 12px 0 18px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      background: var(--code);
+      color: var(--code-ink);
+      overflow-x: auto;
+      line-height: 1.48;
+      font-size: 13px;
+    }
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border-radius: 0;
+    }
+    .note, .warn, .ok {
+      border-left: 4px solid var(--accent);
+      background: #f1f8fb;
+      padding: 10px 12px;
+      margin: 12px 0;
+      border-radius: 0 6px 6px 0;
+    }
+    .warn { border-left-color: var(--warn); background: #fff7e8; }
+    .ok { border-left-color: var(--ok); background: #eef9f1; }
+    .path {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: -4px;
+    }
+    .grid-two {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin: 12px 0 16px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfe;
+    }
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      nav { position: static; }
+      article { padding: 18px; }
+      .grid-two { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <span class="chapter">第二章</span>
+      <h1>STM32F407 + LAN9253 EtherCAT 从站开发笔记</h1>
+      <p>字节对齐、padding、LAN9253 PRAM FIFO 和 SSC 结构体布局专题。</p>
+      <p>这是独立页面，只讲第二章。第一章在 <code>ethercat_slave_development_notes.html</code>。</p>
+    </div>
+  </header>
+
+  <main>
+    <nav>
+      <h2>目录</h2>
+      <a href="#overview">1. 先分清四层</a>
+      <a href="#esc-access">2. ESC 访问宽度</a>
+      <a href="#pdo-padding">3. Excel 里的 pad_4</a>
+      <a href="#lan9253">4. LAN9253 PRAM 对齐</a>
+      <a href="#struct-pack">5. 结构体为什么要 packed</a>
+      <a href="#regen">6. 后续改 SSCTool 时怎么做</a>
+      <a href="#checklist">7. 结论与检查清单</a>
+      <a href="ethercat_slave_development_notes.html">返回第一章</a>
+    </nav>
+
+    <article>
+      <section id="overview">
+        <h2>1. 先分清四层</h2>
+        <p>你问的这些“对齐”问题，看起来像是一类，实际上是四层不同的东西。只要把层次拆开，很多困惑就会一下子松开。</p>
+        <table>
+          <tr><th>层次</th><th>在哪里体现</th><th>它在管什么</th><th>你现在的状态</th></tr>
+          <tr><td>ESC/PDI 访问宽度</td><td><code>EtherCAT/Inc/ecat_def.h</code> 里的 <code>ESC_16BIT_ACCESS</code>、<code>ESC_32BIT_ACCESS</code></td><td>协议栈访问 ESC 寄存器和 DPRAM 时，底层按 8/16/32 bit 哪种方式去适配。</td><td><code>ESC_16BIT_ACCESS=1</code>，<code>ESC_32BIT_ACCESS=0</code></td></tr>
+          <tr><td>PDO 位布局</td><td>SSCTool 的 Excel / XML 对象字典</td><td>某个输入/输出到底占几个 bit，后面要不要补齐到字节边界。</td><td>当前是 1 字节输入 + 1 字节输出</td></tr>
+          <tr><td>LAN9253 FIFO 搬运</td><td><code>BSP/Src/bsp_lan9253.c</code></td><td>PRAM FIFO 以 DWORD 为单位搬数据，非 4 字节对齐地址要自己补齐和裁剪。</td><td>已经写了对齐处理</td></tr>
+          <tr><td>C 结构体内存布局</td><td><code>BSP/Inc/bsp_ssc_hw.h</code>、<code>EtherCAT/Inc/io_cpObjects.h</code></td><td>GCC 会不会插 padding，导致 SSC 算出来的对象偏移和真实内存不一致。</td><td>已用 <code>packed</code> 修过</td></tr>
+        </table>
+        <div class="note">一句话先记住：<strong>ESC 访问宽度</strong>管“怎么访问 ESC”，<strong>pad_4</strong> 管“PDO 位怎么摆”，<strong>LAN9253 对齐代码</strong>管“FIFO 怎么搬”，<strong>packed</strong> 管“C 结构体怎么排”。</div>
+      </section>
+
+      <section id="esc-access">
+        <h2>2. SSCTool 里的 ESC 访问宽度</h2>
+        <p>这两个开关不是在说 PDO 里能不能放 <code>UINT8</code>，而是在说：你的 MCU 访问 LAN9253/ESC 时，底层硬件接口更像 8 bit、16 bit 还是 32 bit 的世界。</p>
+        <p class="path">当前配置位置：<code>EtherCAT/Inc/ecat_def.h</code></p>
+        <pre><code>#define ESC_16BIT_ACCESS 1
+#define ESC_32BIT_ACCESS 0
+#define MBX_16BIT_ACCESS 1
+#define CHECK_SM_PARAM_ALIGNMENT 0</code></pre>
+
+        <div class="grid-two">
+          <div class="card">
+            <h3>1) 两个都关闭</h3>
+            <p><code>ESC_16BIT_ACCESS=0</code> 且 <code>ESC_32BIT_ACCESS=0</code>，表示协议栈认为底层可以按字节访问 ESC。</p>
+            <p>这时最灵活，任意地址、任意长度都更容易处理，适合底层驱动本身就能很好拆分读写的场景。</p>
+          </div>
+          <div class="card">
+            <h3>2) 只开 16 位</h3>
+            <p><code>ESC_16BIT_ACCESS=1</code>、<code>ESC_32BIT_ACCESS=0</code>，表示协议栈按 16 bit/word 的模型来适配 ESC。</p>
+            <p>这是你现在的配置。它并不禁止 PDO 使用 <code>UINT8</code>，只是底层访问 ESC 时会更偏向 word 级处理。</p>
+          </div>
+          <div class="card">
+            <h3>3) 只开 32 位</h3>
+            <p><code>ESC_16BIT_ACCESS=0</code>、<code>ESC_32BIT_ACCESS=1</code>，表示协议栈按 32 bit/DWORD 的模型来适配 ESC。</p>
+            <p>这通常更强调 4 字节边界，适合 32 位并口或内存映射风格的 ESC 访问。</p>
+          </div>
+          <div class="card">
+            <h3>4) 两个都开</h3>
+            <p>这不是一个正常的选择。你不需要同时告诉协议栈“既按 16 位看，又按 32 位看”。</p>
+            <p>实际做法是选一种访问模型，然后让底层驱动和对象字典去配合它。</p>
+          </div>
+        </div>
+
+        <h3>为什么 <code>UINT8</code> 不受影响</h3>
+        <p>你现在的 PDO 是：</p>
+        <pre><code>0x6000:01  Input Byte   8 bit
+0x7000:01  Output Byte  8 bit</code></pre>
+        <p>这描述的是“过程数据长什么样”，不是“底层一次怎么搬”。所以它和 <code>ESC_16BIT_ACCESS=1</code> 不冲突。</p>
+        <p>你可以把它理解成两层：</p>
+        <ul>
+          <li>PDO 层：包裹里到底装了几个字节。</li>
+          <li>ESC 访问层：搬运工一次喜欢搬几个字节。</li>
+        </ul>
+        <p>包裹里可以只有 1 个字节，但搬运工完全可以先搬 2 个字节，再从里面拿出需要的那 1 个字节。</p>
+
+        <h3><code>MBX_16BIT_ACCESS</code> 是什么</h3>
+        <p><code>MBX_16BIT_ACCESS</code> 影响的是 mailbox memory，主要和 CoE/SDO 邮箱数据搬运有关。它不是 ESC DPRAM 访问宽度本身。</p>
+        <div class="ok">你的当前工程建议保持不动。现在已经能进 SafeOP/OP，就先别为了“理论上更整齐”去改这几个宏。等后面要做更复杂功能时，再单独回归测试。</div>
+      </section>
+
+      <section id="pdo-padding">
+        <h2>3. Excel 里的 <code>pad_4</code> 是干什么的</h2>
+        <p><code>pad_4</code> 可以理解成“占位的 4 个 bit”。它不是一个真实按键，也不是一个真实 LED，只是让 PDO 位布局更整齐的空白格。</p>
+        <p>比如以后你不想把 4 个按键合成一个 <code>UINT8</code>，而是想在对象字典里把它们拆成 4 个 <code>BOOL/BIT1</code>：</p>
+        <pre><code>bit0: KEY1
+bit1: KEY2
+bit2: KEY3
+bit3: KEY4
+bit4..bit7: 空着</code></pre>
+        <p>这时最好补一个 4 bit 的 padding：</p>
+        <pre><code>KEY1   1 bit
+KEY2   1 bit
+KEY3   1 bit
+KEY4   1 bit
+pad_4  4 bit
+----------------
+合计   8 bit = 1 byte</code></pre>
+        <p>这样下一个对象就从整字节开始，不会从 bit4 这种奇怪的位置接着往下排。</p>
+
+        <h3>不补会怎样</h3>
+        <p>如果不补，下一个 <code>UINT8</code> 可能会横跨两个字节：</p>
+        <pre><code>Byte0: [KEY1][KEY2][KEY3][KEY4][ next bit0..bit3 ]
+Byte1: [ next bit4..bit7 ][ ... ]</code></pre>
+        <p>这种布局不是绝对不能做，但很容易让主站、从站、调试工具和你自己都看得别扭，尤其是新手阶段。对普通 IO 从站来说，能让数据从字节边界开始，就尽量让它从字节边界开始。</p>
+
+        <table>
+          <tr><th>情况</th><th>是否需要 pad</th><th>原因</th></tr>
+          <tr><td>当前工程直接用 <code>UINT8 InputByte</code> / <code>UINT8 OutputByte</code></td><td>不需要</td><td>你已经把 4 个按键和 2 个 LED 打包进 1 个字节，天然就是 8 bit。</td></tr>
+          <tr><td>4 个按键拆成 4 个独立 bit</td><td>建议加 <code>pad_4</code></td><td>补齐到 1 byte，后续对象更容易对齐和阅读。</td></tr>
+          <tr><td>若后面接 <code>UINT16</code> 或 <code>UINT32</code></td><td>通常要再补到 word / dword 边界</td><td>避免下一个项跨字节、跨字边界。</td></tr>
+        </table>
+
+        <div class="note">记忆方式：<code>pad_4</code> 是 PDO 里的“空格”，只负责摆平位布局，不负责 LAN9253 FIFO，也不负责 C 结构体。</div>
+      </section>
+
+      <section id="lan9253">
+        <h2>4. LAN9253 驱动为什么有很多字节对齐处理</h2>
+        <p>LAN9253 的 ESC DPRAM / 过程数据区是通过 PRAM FIFO 访问的，而这个 FIFO 搬运数据时以 DWORD，也就是 4 字节为单位。问题在于，SSC 协议栈会给你各种很“自由”的访问：1 字节、2 字节、从 <code>0x1001</code> 这种非 4 字节对齐地址开始读写。</p>
+        <p>所以驱动要做的事情就是：<strong>上层想怎么说都行，底层帮它翻译成 LAN9253 能吃的 4 字节搬运</strong>。</p>
+        <p class="path">关键代码位置：<code>BSP/Src/bsp_lan9253.c</code></p>
+        <pre><code>uint8_t bytePos = (offset == 0U) ? (uint8_t)(escAddr &amp; 0x03U) : 0U;
+uint16_t fifoBytesNeeded = (uint16_t)(remainLen + bytePos);
+
+dwordCount = (uint8_t)((fifoBytesNeeded + LAN9253_PRAM_FIFO_DWORD_BYTES - 1U) /
+                       LAN9253_PRAM_FIFO_DWORD_BYTES);
+
+burstBytes = (uint16_t)dwordCount * LAN9253_PRAM_FIFO_DWORD_BYTES;</code></pre>
+
+        <div class="grid-two">
+          <div class="card">
+            <h3><code>bytePos</code></h3>
+            <p>表示当前地址落在一个 DWORD 的第几个字节上。</p>
+            <p>例如：<code>0x1000</code> 是 0，<code>0x1001</code> 是 1，<code>0x1002</code> 是 2。</p>
+          </div>
+          <div class="card">
+            <h3><code>dwordCount</code></h3>
+            <p>表示这次需要从 FIFO 搬几个 DWORD。哪怕只差 1 个字节，也要向上凑整。</p>
+          </div>
+          <div class="card">
+            <h3><code>burstBytes</code></h3>
+            <p>表示真正往 SPI / FIFO 里发多少字节，必然是 4 的倍数。</p>
+          </div>
+          <div class="card">
+            <h3><code>copyLen</code></h3>
+            <p>表示这一轮实际要拷贝多少个有效数据字节，不能把前面的对齐填充也算进去。</p>
+          </div>
+        </div>
+
+        <h3>读操作怎么理解</h3>
+        <p>假设 SSC 要从 <code>0x1001</code> 读 2 字节。LAN9253 这边看到的不是“2 字节小包”，而是一个完整 DWORD 里的偏移数据：</p>
+        <pre><code>ESC 地址:  0x1000  0x1001  0x1002  0x1003
+FIFO 读取: [跳过]  [取走]  [取走]  [可能不用]</code></pre>
+        <p>所以读函数会先把完整 DWORD 从 FIFO 取出来，再通过 <code>bytePos</code> 跳过前面的无效偏移：</p>
+        <pre><code>buf[offset + i] = fifoBytes[bytePos + i];</code></pre>
+
+        <h3>写操作怎么理解</h3>
+        <p>写操作反过来：先准备一个 4 字节缓冲区，把要写的数据放到正确位置，前面需要补的部分先置 0。</p>
+        <pre><code>for (uint16_t i = 0U; i &lt; copyLen; ++i) {
+    fifoBytes[bytePos + i] = buf[offset + i];
+}</code></pre>
+        <p>然后再把这个 DWORD 缓冲区写给 FIFO。这样即使目标地址不是 4 字节对齐，LAN9253 也能正确收到你要的那几个字节。</p>
+
+        <div class="ok">这一层对齐不是 SSCTool 的“对象布局问题”，而是 LAN9253 硬件搬运方式的问题。它和 Excel 里的 <code>pad_4</code> 不是一回事。</div>
+      </section>
+
+      <section id="struct-pack">
+        <h2>5. 为什么结构体要 <code>packed</code></h2>
+        <p>这个问题和你之前进不了 SafeOP 的报错直接相关。简化说法就是：<strong>SSC 以为结构体是紧凑排布的，但 GCC 实际给它插了 padding</strong>。结果协议栈读偏了对象字典里的 PDO 映射项。</p>
+        <p class="path">生成文件示例：<code>EtherCAT/Inc/io_cpObjects.h</code></p>
+        <pre><code>typedef struct OBJ_STRUCT_PACKED_START {
+UINT16 u16SubIndex0;
+UINT32 SI1; /* Subindex1 - Reference to 0x6000.1 */
+} OBJ_STRUCT_PACKED_END
+TOBJ1A00;</code></pre>
+
+        <p>你可以把对象字典理解成一张按顺序摆好的表。SSC 的偏移计算会先认为：</p>
+        <pre><code>subindex 0 占 16 bit
+subindex 1 从第 2 个字节开始</code></pre>
+        <p class="path">相关逻辑：<code>EtherCAT/Src/objdef.c</code></p>
+        <pre><code>if(subindex &gt; 0)
+{
+    /* subindex 1 has an offset of 16Bit */
+    bitOffset += 16;
+}</code></pre>
+
+        <h3>不 packed 时的样子</h3>
+        <pre><code>未 packed 的 GCC 布局：
+offset 0..1: u16SubIndex0
+offset 2..3: 编译器自动 padding
+offset 4..7: SI1 = 0x60000108</code></pre>
+        <p>但 SSC 仍然会按偏移 2 去找 <code>SI1</code>，于是读到的就不是完整的映射值，而是 padding + 一半数据。映射错了，协议栈算出来的 PDO 长度也可能错，最后 TwinCAT 就可能在 PreOP 到 SafeOP 时给你一个：</p>
+        <pre><code>AL Status Code 0x001e - Invalid SM IN cfg</code></pre>
+
+        <h3>packed 后会怎样</h3>
+        <pre><code>packed 布局：
+offset 0..1: u16SubIndex0
+offset 2..5: SI1 = 0x60000108</code></pre>
+        <p>这样内存布局就和 SSC 的偏移计算一致了，协议栈读映射项不会再跑偏。</p>
+
+        <p class="path">你的移植层：<code>BSP/Inc/bsp_ssc_hw.h</code></p>
+        <pre><code>#if defined(__GNUC__)
+#define SSC_GCC_PACKED __attribute__((packed))
+#else
+#define SSC_GCC_PACKED
+#endif
+
+#define STRUCT_PACKED_END     SSC_GCC_PACKED
+#define MBX_STRUCT_PACKED_END SSC_GCC_PACKED
+#define OBJ_STRUCT_PACKED_END SSC_GCC_PACKED
+
+#define OBJ_DWORD_ALIGN 0
+#define OBJ_WORD_ALIGN  0</code></pre>
+
+        <div class="note">这不是“EtherCAT 协议强制这么写”，而是 SSC 的移植要求：<strong>生成的对象结构体布局必须和编译器实际布局一致</strong>。你这套 STM32 + GCC 工程里，当前稳定做法就是 <code>packed</code> + <code>OBJ_WORD_ALIGN=0</code> + <code>OBJ_DWORD_ALIGN=0</code>。</div>
+      </section>
+
+      <section id="regen">
+        <h2>6. 后续改 SSCTool 时怎么做</h2>
+        <p>你前面问过：后面如果打开 <code>AL_EVENT_ENABLED</code> 或 DC，要不要用 SSCTool，会不会很麻烦，会不会覆盖自己写好的代码。答案是：</p>
+        <ul>
+          <li>是的，通常要回到 SSCTool 改配置，再重新生成协议栈和 ESI/XML。</li>
+          <li>但只要你把工程分层做好，自己的硬件驱动和应用代码不会被覆盖。</li>
+          <li>真正会变的，主要是 <code>SSC/</code> 里那些生成文件，以及你同步到 <code>EtherCAT/</code> 的协议栈源码。</li>
+        </ul>
+
+        <table>
+          <tr><th>改动内容</th><th>一般要回 SSCTool 吗</th><th>为什么</th></tr>
+          <tr><td>打开 <code>AL_EVENT_ENABLED</code></td><td>通常要</td><td>这个开关属于协议栈配置，生成的代码路径和事件处理方式会变。</td></tr>
+          <tr><td>打开 <code>DC_SUPPORTED</code></td><td>通常要</td><td>DC 相关对象、同步设置、ESI 描述一般都要重新整理。</td></tr>
+          <tr><td>改 PDO / 对象字典</td><td>必须要</td><td>对象字典和 PDO 映射本来就是 SSCTool 生成的核心内容。</td></tr>
+          <tr><td>改按键、LED 驱动</td><td>不需要</td><td>这些属于 <code>BSP/</code> 和 <code>App/</code>，应该尽量放在生成目录外。</td></tr>
+        </table>
+
+        <p>所以正确姿势不是“以后别用 SSCTool”，而是“让 SSCTool 只负责它该生成的部分，自己的代码放在独立层里”。你现在把生成代码和自写代码拆开，这个思路是对的。</p>
+      </section>
+
+      <section id="checklist">
+        <h2>7. 结论与检查清单</h2>
+        <div class="ok">
+          当前工程的推荐结论：<br>
+          1. <code>ESC_16BIT_ACCESS=1</code> 可以继续保留。<br>
+          2. 1 字节 PDO 不受影响。<br>
+          3. <code>pad_4</code> 只在你把 bit 信号拆得很碎时才需要。<br>
+          4. LAN9253 的对齐代码是硬件 FIFO 需求，不是对象字典需求。<br>
+          5. <code>packed</code> 是为了解决 SSC 结构体布局和编译器布局不一致。<br>
+        </div>
+
+        <table>
+          <tr><th>如果你后面要改</th><th>先看什么</th><th>建议</th></tr>
+          <tr><td>继续做简单 IO</td><td>SM2/SM3 长度、PDO 是否仍是 1 字节</td><td>不用动对齐设置。</td></tr>
+          <tr><td>把按键拆成多个 bit</td><td>后面有没有跨字节</td><td>必要时加 <code>pad_4</code>。</td></tr>
+          <tr><td>打开 <code>AL_EVENT_ENABLED</code></td><td>中断里会不会直接碰阻塞 SPI</td><td>先只置位标志，再由主循环处理。</td></tr>
+          <tr><td>打开 DC</td><td>同步对象、周期、时序是否都重新确认</td><td>建议在基础功能完全稳定后再做。</td></tr>
+          <tr><td>重生成 SSC</td><td>生成文件是否覆盖了你自己写的代码</td><td>坚持把自写逻辑放在 <code>BSP/</code>、<code>App/</code>。</td></tr>
+        </table>
+
+        <p>最后用最通俗的一句收尾：<strong>你现在遇到的不是一个“对齐问题”，而是四个不同层面的对齐问题刚好撞在一起了。把层拆开看，它们就都好理解了。</strong></p>
+      </section>
+    </article>
+  </main>
+</body>
+</html>
